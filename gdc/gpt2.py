@@ -95,7 +95,7 @@ class GPT2HeadWithValueModel(GPT2PreTrainedModel):
     def forward(
         self,
         input_ids=None,
-        past=None,
+        past_key_values=None,
         attention_mask=None,
         token_type_ids=None,
         position_ids=None,
@@ -108,7 +108,7 @@ class GPT2HeadWithValueModel(GPT2PreTrainedModel):
 
         transformer_outputs = self.transformer(
             input_ids,
-            past=past,
+            past_key_values=past_key_values,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
             position_ids=position_ids,

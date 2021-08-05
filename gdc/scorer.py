@@ -138,11 +138,15 @@ class Scorer:
 
         elif self.config['scorer_type'] in ['wordlist', 'wikibio-wordlist']:
 
-                
             def scoring_fn(samples):
                 tokenized_samples = [tokenize(s) for s in samples]
                 return torch.tensor([self.POSITIVE if any(w in tokens for w in self.wordlist) else self.NEGATIVE for tokens in tokenized_samples])
 
+        elif self.config['scorer_type'] == 'dynamic_wordlist':
+
+            def scoring_fn(samples, dynamic_wordlist):
+                tokenized_samples = [tokenize(s) for s in samples]
+                return torch.tensor([self.POSITIVE if any(w in tokens for w in dynamic_wordlist) else self.NEGATIVE for tokens in tokenized_samples])
 
         elif self.config['scorer_type'] == 'model':
             

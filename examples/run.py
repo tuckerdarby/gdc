@@ -3,10 +3,8 @@
 # Distributed under CC-BY-NC-SA-4.0
 
 import os
-import neptune
 import json
 import torch
-import wandb
 import time
 import sys
 import string
@@ -48,38 +46,6 @@ def to_ljson(log_dict):
         d[k] = v
     d = json.dumps(d)
     return d
-
-
-def load_neptune(config):
-    if config["NEPTUNE"]:
-        assert "WANDB_NEPTUNE_NAME" in config, "You must specify a name for the experiment"
-        os.environ['NEPTUNE_API_TOKEN'] = config["NEPTUNE_API_TOKEN"]
-        print("Neptune: Initializing..")
-        experiment_id = config.get("run_id", None)
-        project = neptune.init(config["NEPTUNE_PROJECT_NAME"])
-        if experiment_id and len(project.get_experiments(tag=experiment_id)) > 0:
-            experiment = project.get_experiments(tag=experiment_id)[0]
-            print(f"Neptune: Found existing experiment: {experiment_id}")
-        else:
-            experiment = project.create_experiment(
-                name=config["WANDB_NEPTUNE_NAME"],
-                description=config.get("WANDB_NEPTUNE_DESC", ""),
-                tags=config.get("WANDB_NEPTUNE_TAGS", []) + [experiment_id],
-                upload_source_files=[],
-                params=config)
-            print("Neptune: Experiment created")
-        return experiment
-
-
-def load_wandb(config):
-    if config["WANDB"]:
-        print("logging to wandb..")
-        run_object = wandb.init(project=config["WANDB_PROJECT_NAME"], config=config,
-                    tags=config.get("WANDB_NEPTUNE_TAGS", []),
-                    notes=config.get("WANDB_NEPTUNE_DESC", ""),
-                    resume="allow", id=config.get("run_id", None)
-                )
-        return run_object
 
 
 def sample_and_score(model, tokenizer, scoring_function, empty_prefix, top_p=1.0, sample_size=None):
@@ -139,12 +105,11 @@ def sample_and_score(model, tokenizer, scoring_function, empty_prefix, top_p=1.0
 
 
 def main(config):
-    neptune_experiment = load_neptune(config)
-    wandb_run = load_wandb(config)
 
     #tokenizer
     gpt2_tokenizer = GPT2Tokenizer.from_pretrained(config['tk_name'])
     scorer = Scorer(**config)
+    print('Getting scoring fn')
     scoring_fn = scorer.get_scoring_fn()
 
     logging.info("Creating {} Trainer...".format(config['trainer_class']))
@@ -207,15 +172,6 @@ def main(config):
 
         # log some samples
         samples = [[i, k, j] for i, k, j in zip([epoch]*len(scores), scores, game_data["response"])]
-        log_samples = samples[:config.get("NEPTUNE_LOG_SAMPLE_SIZE", 20)]
-
-        if neptune_experiment:
-            for i, k, j in log_samples:
-                r = "epoch:{} \t b(x)={} \t : {}".format(i, k, j)
-                neptune_experiment.log_text(log_name='Train/samples', x=clean_str(r), timestamp=time.time())
-
-        if wandb_run:
-            wandb_run.log({"Train/samples": wandb.Table(data=log_samples, columns=["epoch", "b(x)", "Text"])})
 
         train_logs["epoch"] = epoch
         train_log_file.write(to_ljson(train_logs) + '\n')
@@ -242,16 +198,6 @@ def main(config):
             # log some samples
             samples = [[i, k, j] for i, k, j in zip([epoch]*len(scores), scores, game_data["response"])]
 
-            log_samples = samples[:config.get("NEPTUNE_LOG_SAMPLE_SIZE", 20)]
-            if neptune_experiment:
-                for i, k, j in log_samples:
-                    r = "epoch:{} \t b(x)={} \t : {}".format(i, k, j)
-                    neptune_experiment.log_text(log_name='Eval/samples', x=clean_str(r), timestamp=time.time())
-
-            if wandb_run:
-                wandb_run.log({"Eval/sampelf.params['q_update_interval'] * les": wandb.Table(data=log_samples,
-                                        columns=["epoch", "b(x)", "Text"])})
-
             # sample from Ref model
             eval_logs["Eval/KL(p || pi)"] = trainer.eval_kl_p()
             # sample from eval model
@@ -267,13 +213,6 @@ def main(config):
             all_logs.update(eval_logs)
 
         pretty_print(all_logs)  # pretty print step logs
-
-        if neptune_experiment:
-            for k, v in all_logs.items():
-                neptune_experiment.log_metric(k, v)
-
-        if wandb_run:
-            wandb_run.log(all_logs)
 
         if (epoch+1) % config['save_checkpoint_every'] == 0:
             print("saving checkpoint to {}".format(config["save_dir"]))
