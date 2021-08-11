@@ -171,7 +171,7 @@ def main(config):
         train_logs.update(step_logs)
 
         # log some samples
-        samples = [[i, k, j] for i, k, j in zip([epoch]*len(scores), scores, game_data["response"])]
+        # samples = [[i, k, j] for i, k, j in zip([epoch]*len(scores), scores, game_data["response"])]
 
         train_logs["epoch"] = epoch
         train_log_file.write(to_ljson(train_logs) + '\n')
@@ -248,10 +248,12 @@ if __name__ == "__main__":
     override_dict = {k: parse(k, v) for k,v in args.override}
     config.update(override_dict)  # override args
 
-    device_1, device_2 = 0, 1
+    device_1, device_2, device_3, device_4 = 0, 1, 2, 3
 
     config['gpt2_device'] = device_1
-    config['gpt2_orig_device'] = config['gpt2_sentiment_device'] = config['gpt2_ref_device'] = device_2
+    config['gpt2_orig_device'] = device_2
+    config['gpt2_sentiment_device'] = device_3
+    config['gpt2_ref_device'] = device_4
 
     config["save_log_dir"] = "../saved_logs"
 
