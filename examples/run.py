@@ -16,6 +16,7 @@ tqdm.pandas()
 
 sys.path.append("../")
 from gdc.gpt2 import GPT2HeadWithValueModel, respond_to_batch
+from gdc.gpt_neo import GPTNeoHeadWithValueModel
 from gdc.pointwise_gdc import PointwiseGDCTrainer
 from gdc.metrics import Distinct_N, SelfBlEU
 from gdc.pg import PGTrainer
@@ -115,8 +116,11 @@ def main(config):
     logging.info("Creating {} Trainer...".format(config['trainer_class']))
     trainer_cls = eval(config['trainer_class'])
 
+    use_neo = 'neo' in config['lm_name']
+    use_model_class = GPT2HeadWithValueModel if use_neo else GPTNeoHeadWithValueModel
+
     # initialized trainer
-    trainer = trainer_cls(model_cls=GPT2HeadWithValueModel,
+    trainer = trainer_cls(model_cls=use_model_class,
                             tokenizer=gpt2_tokenizer,
                             sampling_function=sample_and_score, 
                             scoring_function=scoring_fn, 
